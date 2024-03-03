@@ -6,7 +6,6 @@ import IUniswapV3PoolStateJSON from '@uniswap/v3-core/artifacts/contracts/interf
 import { computePoolAddress, toHex } from '@vnaysn/jediswap-sdk-v3'
 import { FeeAmount, Pool } from '@vnaysn/jediswap-sdk-v3'
 import JSBI from 'jsbi'
-import { useMultipleContractSingleData } from 'lib/hooks/multicall'
 import { useMemo } from 'react'
 import { IUniswapV3PoolStateInterface } from '../types/v3/IUniswapV3PoolState'
 import { V3_CORE_FACTORY_ADDRESSES } from 'constants/addresses'
@@ -17,8 +16,41 @@ import POOL_ABI from 'contracts/pool/abi.json'
 import FACTORY_ABI from 'contracts/factoryAddress/abi.json'
 import { POOL_CLASS_HASH, FACTORY_ADDRESS } from 'constants/tokens'
 import { toInt } from 'utils/toInt'
-
+import POOL_STATE_INTERFACE from 'contracts/pool/abi.json'
+import { useMultipleContractSingleData } from 'state/multicall/hooks'
 // const POOL_STATE_INTERFACE = new Interface(IUniswapV3PoolStateJSON.abi) as IUniswapV3PoolStateInterface
+
+const usePoolProps = (poolAddress: (string | undefined)[]) => {
+  const { data: tick } = useContractRead({
+    functionName: 'get_tick',
+    args: [],
+    abi: POOL_ABI,
+    address: poolAddress?.[0],
+    watch: true,
+  })
+
+  const tickCurrent = useMemo(() => {
+    return toInt(tick)
+  }, [tick])
+
+  const { data: liquidity } = useContractRead({
+    functionName: 'get_liquidity',
+    args: [],
+    abi: POOL_ABI,
+    address: poolAddress?.[0],
+    watch: true,
+  })
+
+  const { data: sqrtPriceX96 } = useContractRead({
+    functionName: 'get_sqrt_price_X96',
+    args: [],
+    abi: POOL_ABI,
+    address: poolAddress?.[0],
+    watch: true,
+  })
+
+  return { tickCurrent, liquidity, sqrtPriceX96 }
+}
 
 // Classes are expensive to instantiate, so this caches the recently instantiated pools.
 // This avoids re-instantiating pools as the other pools in the same request are loaded.
@@ -154,33 +186,10 @@ export function usePools(
     [poolTokens]
   )
 
-  const { data: tick } = useContractRead({
-    functionName: 'get_tick',
-    args: [],
-    abi: POOL_ABI,
-    address: poolAddress?.[0],
-    watch: true,
-  })
+  const { sqrtPriceX96, liquidity, tickCurrent } = usePoolProps(poolAddress)
 
-  const tickCurrent = useMemo(() => {
-    return toInt(tick)
-  }, [tick])
-
-  const { data: liquidity } = useContractRead({
-    functionName: 'get_liquidity',
-    args: [],
-    abi: POOL_ABI,
-    address: poolAddress?.[0],
-    watch: true,
-  })
-
-  const { data: sqrtPriceX96 } = useContractRead({
-    functionName: 'get_sqrt_price_X96',
-    args: [],
-    abi: POOL_ABI,
-    address: poolAddress?.[0],
-    watch: true,
-  })
+  // const slot0s = useMultipleContractSingleData(poolAddress, POOL_STATE_INTERFACE, 'get_sqrt_price_X96')
+  // const liquidities = useMultipleContractSingleData(poolAddress, POOL_STATE_INTERFACE, 'get_liquidity')
 
   // 2018382873588440326581633304624437
 
